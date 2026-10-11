@@ -1,0 +1,96 @@
+plugins {
+	id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
+}
+
+loom {
+	runs {
+		// Dedicated server run in its own directory so its log never collides
+		// with the client run's logs/latest.log during automated verification.
+		server {
+			server()
+			runDir = "run-server"
+		}
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	mappings loom.officialMojangMappings()
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// Minimal WebSocket client/server used for the Cloudflare tunnel bridge.
+	implementation "org.java-websocket:Java-WebSocket:1.5.7"
+	include "org.java-websocket:Java-WebSocket:1.5.7"
+}
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 17
+	it.options.encoding = 'UTF-8'
+}
+
+java {
+	withSourcesJar()
+
+	sourceCompatibility = JavaVersion.VERSION_17
+	targetCompatibility = JavaVersion.VERSION_17
+}
+
+// The bundled cloudflared binary is runtime payload only — keep it out of the
+// sources jars so those artifacts stay small.
+tasks.withType(Jar).configureEach { t ->
+	if (t.name.toLowerCase().contains('sources')) {
+		exclude 'cloudlan/bin/**'
+	}
+}
+
+base {
+	archivesName = project.archives_base_name
+}
+
+jar {
+	def projectName = project.name
+	inputs.property "projectName", projectName
+
+	from("LICENSE") {
+		rename { "${it}_$projectName" }
+	}
+}
+
+// End-to-end tunnel self test: exercises bridge + cloudflared + relay
+// without launching Minecraft. Usage: gradlew e2e -Pcloudflared=<path>
+tasks.register('e2e', JavaExec) {
+	group = 'verification'
+	description = 'Run the CloudLAN end-to-end tunnel self test'
+	classpath = sourceSets.main.runtimeClasspath
+	mainClass = 'dev.cloudlan.e2e.E2ETest'
+	if (project.hasProperty('cloudflared')) {
+		args project.property('cloudflared')
+	}
+}
+
+// Host-side tunnel driver for automated in-game verification: publishes a
+// bridge + cloudflared quick tunnel to 127.0.0.1:<gamePort> and writes the
+// domain to e2e-run/host-domain.txt. Runs until killed.
+tasks.register('hostDriver', JavaExec) {
+	group = 'verification'
+	description = 'Drive bridge + cloudflared against a local MC server (see HostDriver)'
+	classpath = sourceSets.main.runtimeClasspath
+	mainClass = 'dev.cloudlan.e2e.HostDriver'
+	if (project.hasProperty('gamePort')) {
+		args project.property('gamePort')
+	}
+}

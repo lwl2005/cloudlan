@@ -1,0 +1,32 @@
+{
+	"schemaVersion": 1,
+	"id": "cloudlan",
+	"version": "${version}",
+	"name": "CloudLAN 一键联机",
+	"description": "用 Cloudflare 免费临时域名把你的单人世界变成一个可以直接加入的地址：房主在游戏内打开窗口一键开启隧道，朋友安装本模组后在多人游戏里直接添加域名即可进游戏，无需部署服务器或配置内网穿透。",
+	"authors": [
+		"CloudLAN"
+	],
+	"contact": {
+		"homepage": "https://github.com/cloudflare/cloudflared"
+	},
+	"license": "MIT",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"dev.cloudlan.CloudLanClient"
+		]
+	},
+	"mixins": [
+		{
+			"config": "cloudlan.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.16.0",
+		"minecraft": "~1.20.1",
+		"java": ">=17",
+		"fabric-api": "*"
+	}
+}
